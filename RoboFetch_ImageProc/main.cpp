@@ -8,9 +8,6 @@
 
 #include "main.h"
 
-#define ROW_MAX             40
-#define COL_MAX             30
-
 #define CIRCLE_RADIUS       8
 #define CIRCLE_THICKNESS    2
 
