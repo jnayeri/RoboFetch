@@ -10,17 +10,21 @@
 
 #define ROW_MAX             40
 #define COL_MAX             30
-#define CIRCLE_RADIUS       20
-#define CIRCLE_THICKNESS    1
+
+#define CIRCLE_RADIUS       8
+#define CIRCLE_THICKNESS    2
+
+#define ESCAPE_KEY          27
 
 using namespace std;
 using namespace cv;
 
+int posX = 0;
+int posY = 0;
+
 int main(int, char**)
 {
     cv::VideoCapture vcap;
-    cv::Mat image;
-    bool bSuccess = false;
     const std::string videoStreamAddress = "http://dragino-jn.local:8080/?action=stream.mjpg";
     
     // Open the video stream and make sure it's opened
@@ -63,15 +67,13 @@ int main(int, char**)
     /* Create a black image with the size as the camera output */
     cv::Mat imgLines = Mat::zeros( imgTmp.size(), CV_8UC3 );
     
-    while (true)
+    while (waitKey(30) != ESCAPE_KEY)
     {
         // Delete previous circle
         cv::Mat imgLines = Mat::zeros( imgTmp.size(), CV_8UC3 );
         cv::Mat imgOriginal;
         
-        bSuccess = vcap.read(imgOriginal); // Read a new frame from video
-        
-        if (!bSuccess) // If not successful, break loop
+        if (!vcap.read(imgOriginal)) // Read a new frame from video. If not successful, break loop
         {
             cout << "Cannot read a frame from video stream" << endl;
             break;
@@ -98,11 +100,11 @@ int main(int, char**)
         double dArea = oMoments.m00;
         
         // If the area <= 10000, I consider that the there are no object in the image and it's because of the noise, the area is not zero
-        if (dArea > 156)
+        if (dArea > 500)
         {
             // Calculate the position of the ball
-            int posX = dM10 / dArea;
-            int posY = dM01 / dArea;
+            posX = dM10 / dArea;
+            posY = dM01 / dArea;
             
             circle(imgLines, cv::Point(posX, posY), CIRCLE_RADIUS, cv::Scalar(0,0,255), CIRCLE_THICKNESS);
             
@@ -114,36 +116,8 @@ int main(int, char**)
         
         imgOriginal = imgOriginal + imgLines;
         imshow("Original", imgOriginal); // Show the original image
-        
-        if (waitKey(30) == 27) // Wait for 'esc' key press for 30ms. If 'esc' key is pressed, break loop
-        {
-            cout << "esc key is pressed by user" << endl;
-            break;
-        }
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    /*while (true)
-    {
-        if(!vcap.read(image)) {
-            std::cout << "No frame" << std::endl;
-            cv::waitKey();
-        }
-        cv::imshow("Output Window", image);
-        if(cv::waitKey(1) >= 0) break;
-    }*/
     
     return 0;
 }
+
