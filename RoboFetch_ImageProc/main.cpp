@@ -8,10 +8,10 @@
 
 #include "main.h"
 
-#define CIRCLE_RADIUS       8
-#define CIRCLE_THICKNESS    2
-
-#define ESCAPE_KEY          27
+#define CIRCLE_RADIUS           8
+#define CIRCLE_THICKNESS        2
+#define ESCAPE_KEY              27
+#define MAX_SERIAL_ATTEMPTS     5
 
 using namespace std;
 using namespace cv;
@@ -19,13 +19,27 @@ using namespace cv;
 int posX = 0;
 int posY = 0;
 
+bool target_detected = false;
+
+uint8_t tx_buf[] = {'j', 0, 0, 0};
+
 int main(int, char**)
 {
-    cv::VideoCapture vcap;
-    const std::string videoStreamAddress = "http://dragino-jn.local:8080/?action=stream.mjpg";
     
-    // Open the video stream and make sure it's opened
-    if(!vcap.open(videoStreamAddress, cv::CAP_FFMPEG)) {
+    /* Open the Serial Port for Data Transfer to HC-05 */
+    int count = -1;
+    int fd;
+    do
+    {
+        count++;
+        fd = serialport_init("/dev/cu.HC-05-DevB", 9600);
+        if (count < MAX_SERIAL_ATTEMPTS) continue;
+        std::cout << "Error opening HC-05 Serial Port on attempt " << count << std::endl;
+    } while (fd == -1 && count < MAX_SERIAL_ATTEMPTS);
+    
+    /* Open the video stream and make sure it's opened */
+    cv::VideoCapture vcap;
+    if(!vcap.open("http://dragino-jn.local:8080/?action=stream.mjpg", cv::CAP_FFMPEG)) {
         std::cout << "Error opening video stream or file" << std::endl;
         return -1;
     }
@@ -99,6 +113,7 @@ int main(int, char**)
         // If the area <= 10000, I consider that the there are no object in the image and it's because of the noise, the area is not zero
         if (dArea > 500)
         {
+            target_detected = true;
             // Calculate the position of the ball
             posX = dM10 / dArea;
             posY = dM01 / dArea;
@@ -109,12 +124,49 @@ int main(int, char**)
             iLastY = posY;
         }
         
+        else
+        {
+            target_detected = false;
+        }
+        
         imshow("Thresholded Image", imgThresholded); //show the thresholded image
         
         imgOriginal = imgOriginal + imgLines;
         imshow("Original", imgOriginal); // Show the original image
+        
+        // Size of the Image //
+        //std::cout << "Width : " << imgOriginal.cols << std::endl;
+        //std::cout << "Height: " << imgOriginal.rows << std::endl << std::endl;
+        
+        /*  Transfer of Center Position to Arduino through Serial Port  */
+        
+        if (target_detected == true)
+        {
+            tx_buf[1] = 1;
+            tx_buf[2] = posX;
+            tx_buf[3] = posY;
+            
+            for (int i = 0; i < sizeof(tx_buf); i++)
+            {
+                if (serialport_writebyte(fd, (uint8_t)tx_buf[i]) != 0)
+                    std::cout << "Error sending " << (uint8_t)tx_buf[i] << "to HC-05 serial port." << std::endl;
+            }
+        }
+        else
+        {
+            tx_buf[1] = 0;
+        }
+        
     }
     
+    serialport_close(fd);
     return 0;
 }
+
+
+
+
+
+
+
 
